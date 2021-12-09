@@ -3,6 +3,9 @@
  */
 package com.ul;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -17,15 +20,24 @@ public class Consumer {
     private SimpleDateFormat simpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSSZ");
 
     private ArrayList<Message> buffer = new ArrayList<>();
+    private BufferedWriter fileWriter;
 
     public Consumer(BlockingQueue<Message> queue) {
         this.queue = queue;
+        setupLogger();
     }
 
-    private void formatAndLog(Message message) {
+    private void setupLogger() {
+        try {
+            fileWriter = new BufferedWriter(new FileWriter("logs.txt"));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private String getFormattedMessage(Message message) {
         String date = this.simpleDateFormat.format(new Date(message.getTimestamp()));
-        String output = String.format("%s [%s]: %s", date, message.getPriority(), message.getText());
-        System.out.println(output);
+        return String.format("%s [%s]: %s\n", date, message.getPriority(), message.getText());
     }
 
     public void startConsuming() {
@@ -37,7 +49,8 @@ public class Consumer {
                         Message message = queue.take();
                         Consumer.this.addToBuffer(message);
                     } catch (InterruptedException e) {
-                        // executing thread has been interrupted, exit loop
+                        flush();
+                        close();
                         break;
                     }
                 }
@@ -50,12 +63,36 @@ public class Consumer {
         consumerThread.interrupt();
     }
 
+    private void writeRaw(String message) {
+        System.out.print(message);
+        try {
+            fileWriter.write(message);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void flush() {
         Collections.sort(buffer);
         for (Message message : buffer) {
-            formatAndLog(message);
+            writeRaw(getFormattedMessage(message));
         }
         buffer.clear();
+
+        try {
+            fileWriter.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        writeRaw("------ FLUSH -----\n");
+    }
+
+    private void close() {
+        try {
+            fileWriter.close();
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
     }
 
     private void addToBuffer(Message message) {
