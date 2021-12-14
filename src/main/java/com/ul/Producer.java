@@ -8,6 +8,7 @@ import java.util.concurrent.BlockingQueue;
 public class Producer {
 
     private BlockingQueue<Message> queue;
+    private Thread producerThread = null;
     private int messageCounter = 0;
 
     public Producer(BlockingQueue<Message> queue) {
@@ -15,7 +16,7 @@ public class Producer {
     }
 
     public void startProducing() {
-        new Thread(new Runnable() {
+        producerThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
@@ -23,16 +24,18 @@ public class Producer {
                         Message message = MessageFactory.generateMessage(messageCounter);
                         queue.add(message);
                         messageCounter++;
+                        Thread.sleep(100);
                     }
                 } catch (InterruptedException e) {
-                    // exit loop quietly
+                    e.printStackTrace();
                 }
             }
-        }).start();
+        });
+
+        producerThread.start();
     }
 
     public void stopProducing() {
-        // set message counter to maximum number of messages to stop loop, allowing thread to exit
-        messageCounter = 100;
+        producerThread.interrupt();
     }
 }
